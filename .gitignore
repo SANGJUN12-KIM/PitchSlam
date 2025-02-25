@@ -1,0 +1,8 @@
+# ...existing code...
+# Next.js SWC binaries
+node_modules/@next/swc-*/
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
