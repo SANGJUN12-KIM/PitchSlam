@@ -106,16 +106,20 @@ export const PitchRecorder: React.FC = () => {
     analyser.current.getFloatTimeDomainData(buffer);
     const [pitch] = detector.current.findPitch(buffer, audioContext.current!.sampleRate);
     
-    if (pitch && !Number.isNaN(pitch)) {
+    // pitch가 유효한 값인 경우에만 처리
+    if (pitch && !Number.isNaN(pitch) && pitch > 0) {
       pitchValues.current.push(pitch);
       setCurrentPitch(pitch);
+    } else {
+      setCurrentPitch(0); // 유효하지 않은 경우 0으로 설정
     }
 
     requestAnimationFrame(analyzePitch);
   };
 
   // 피치 0~1000Hz를 기준으로 게이지 길이를 계산 (필요시 조정)
-  const gaugePercentage = Math.min((currentPitch / 1000) * 100, 100);
+  const gaugePercentage = currentPitch && currentPitch > 0 ? 
+    Math.min((currentPitch / 1000) * 100, 100) : 0;
 
   const renderMeterMarkers = () => {
     return (
@@ -130,45 +134,31 @@ export const PitchRecorder: React.FC = () => {
     );
   };
 
-  const currentNote = getNote(currentPitch);
-  const [noteName, octave] = currentNote.split(/(\d+)/);
+  // 피치가 0인 경우 노트 표시하지 않음
+  const renderNote = () => {
+    if (!currentPitch || currentPitch === 0 || Number.isNaN(currentPitch)) return null;
+
+    const currentNote = getNote(currentPitch);
+    if (!currentNote) return null;  // 유효하지 않은 노트인 경우도 체크
+
+    const [noteName, octave] = currentNote.split(/(\d+)/);
+    if (!noteName || !octave) return null;  // 분리가 제대로 되지 않은 경우도 체크
+
+    return (
+      <div className={styles.note}>
+        {noteName}<span className={styles.octave}>{octave}</span>
+      </div>
+    );
+  };
 
   const getRankingPosition = (pitch: number): number => {
     return ranking.indexOf(pitch) + 1;
   };
 
-  return (
-    <div className={styles['pitch-recorder']}>
-      <RecordAnimation show={showRecord} pitch={highestPitch} />
-      
-      <div className={styles.controls}>
-        <button onClick={isRecording ? stopRecording : startRecording}>
-          {isRecording ? 'STOP' : 'START'}
-        </button>
-      </div>
+  const renderStats = () => {
+    if (!highestPitch) return null;
 
-      <div className={styles['tuner-display']}>
-        {isMuted && <div className={styles['mute-indicator']}>MUTE</div>}
-        
-        <div className={styles['tuner-meter']}>
-          {renderMeterMarkers()}
-          <div 
-            className={styles['gauge-fill']} 
-            style={{ width: `${gaugePercentage}%` }} 
-          />
-        </div>
-        
-        <div className={styles.spectrum} />
-      </div>
-
-      <div className={styles.note}>
-        {noteName}<span className={styles.octave}>{octave}</span>
-      </div>
-
-      <div className={styles.reference}>440 Hz</div>
-      
-      <div className={styles['brand-name']}>PITCH SLAM</div>
-
+    return (
       <div className={styles.stats}>
         <div className={styles.highScore}>
           Highest: {highestPitch.toFixed(1)} Hz
@@ -188,6 +178,41 @@ export const PitchRecorder: React.FC = () => {
           ))}
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className={styles['pitch-recorder']}>
+      <RecordAnimation show={showRecord} pitch={highestPitch} />
+      
+      <div className={styles.controls}>
+        <button onClick={isRecording ? stopRecording : startRecording}>
+          {isRecording ? 'STOP' : 'START'}
+        </button>
+      </div>
+
+      <div className={styles['tuner-display']}>
+        {isMuted && <div className={styles['mute-indicator']}>MUTE</div>}
+        
+        <div className={styles['tuner-meter']}>
+          {renderMeterMarkers()}
+          {currentPitch > 0 && (
+            <div 
+              className={styles['gauge-fill']} 
+              style={{ width: `${gaugePercentage}%` }} 
+            />
+          )}
+        </div>
+        
+        <div className={styles.spectrum} />
+      </div>
+
+      {renderNote()}
+      {renderStats()}
+
+      <div className={styles.reference}>440 Hz</div>
+      
+      <div className={styles['brand-name']}>PITCH SLAM</div>
 
       {sessions.length > 0 && (
         <div className={styles.sessions}>
